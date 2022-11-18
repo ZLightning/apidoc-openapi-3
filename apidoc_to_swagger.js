@@ -264,21 +264,17 @@ function generateResponses(verb) {
     const success = verb.success
     const responses = {
         200: {
-            schema: {
-                properties: {},
-                type: 'object',
-                required: []
-            }
+            description: "OK"
         }
     }
-    if (success && success.examples && success.examples.length > 0) {
+    /*if (success && success.examples && success.examples.length > 0) {
         for (const example of success.examples) {
             const { code, json } = safeParseJson(example.content)
             const schema = GenerateSchema.json(example.title, json)
             responses[code] = { schema, description: example.title }
         }
 
-    }
+    }*/
 
     mountResponseSpecSchema(verb, responses)
 
@@ -289,7 +285,7 @@ function mountResponseSpecSchema(verb, responses) {
     // if (verb.success && verb.success['fields'] && verb.success['fields']['Success 200']) {
     if (_.get(verb, 'success.fields.Success 200')) {
         const apidocParams = verb.success['fields']['Success 200']
-        responses[200] = transferApidocParamsToSwaggerBody(apidocParams, responses[200])
+        //responses[200] = transferApidocParamsToSwaggerBody(apidocParams, responses[200])
     }
 }
 
