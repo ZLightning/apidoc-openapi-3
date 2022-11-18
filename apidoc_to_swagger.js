@@ -177,19 +177,15 @@ function generateProps(verb) {
         tags: [verb.group],
         summary: removeTags(verb.name),
         description: removeTags(verb.title),
-        consumes: [
-            "application/json"
-        ],
-        produces: [
-            "application/json"
-        ],
         parameters,
-        requestBody: {
-            content: {
-                'application/json': body
-            }
-        },
         responses
+    }
+
+    if(!(JSON.stringify(body) === JSON.stringify({}))){ // body not empty
+        pathItemObject[verb.type]["requestBody"] = {content: {
+            'application/json': body
+        }}
+
     }
 
     return pathItemObject
