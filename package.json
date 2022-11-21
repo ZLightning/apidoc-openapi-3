@@ -1,6 +1,6 @@
 {
     "name": "apidoc-openapi-3",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Convert api doc json to openapi 3 json",
     "author": "tancrede GEANT",
     "main": "bin.js",
