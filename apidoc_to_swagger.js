@@ -116,7 +116,6 @@ function transferApidocParamsToSwaggerBody(apiDocParams, parameterInBody) {
     }
 
     apiDocParams.forEach(i => {
-
         const type = i.type ? i.type.toLowerCase() : "string"
         const key = i.field
         const nestedName = createNestedName(i.field)
@@ -150,6 +149,12 @@ function transferApidocParamsToSwaggerBody(apiDocParams, parameterInBody) {
 
             // new mount point
             mountPlaces[key] = mountPlaces[objectName]['properties'][propertyName]
+        } else if (objectName === undefined) {
+            mountPlaces['properties'][propertyName] = {
+                type,
+                description: i.description,
+                default: i.defaultValue,
+            }
         } else {
             mountPlaces[objectName]['properties'][propertyName] = {
                 type,
@@ -286,10 +291,28 @@ function mountResponseSpecSchema(verb, responses) {
     // if (verb.success && verb.success['fields'] && verb.success['fields']['Success 200']) {
     if (_.get(verb, 'success.fields.Success 200')) {
         const apidocParams = verb.success['fields']['Success 200']
-        //responses[200] = transferApidocParamsToSwaggerBody(apidocParams, responses[200])
+        responses[200] = transferApidocSuccessToSwaggerBody(apidocParams, responses[200]);
     }
 }
-
+function transferApidocSuccessToSwaggerBody(specs, mountPoint) {
+	if(specs instanceof Array && specs.length) {
+		mountPoint.content = {
+			'application/json': {
+				schema: {
+					properties: {}
+				}
+			}
+		}
+		//Support JSON content type only for simplicity
+		var schema = mountPoint.content['application/json'].schema;
+		specs.forEach((fieldData) => {
+			//ignore group parameter (too complicated to translate)
+			var { field: fName, type: fType, optional, defaultValue, description } = fieldData;
+			addSuccessField(fName, fType, optional, removeTags(description || ""), defaultValue, schema);
+		});
+	}
+	return mountPoint;
+}
 function safeParseJson(content) {
     // such as  'HTTP/1.1 200 OK\n' +  '{\n' + ...
 
@@ -319,6 +342,87 @@ function safeParseJson(content) {
         code,
         json
     }
+}
+
+function addSuccessField(fName, fType, optional, description, defaultValue, schema) {
+	let propertyName = fName;
+	let propertyNames = fName.split(".");
+	fType = fType.toLowerCase();
+	let objRef = schema;
+	//Handle the less common dotted field property that is NOT nested in the JSON response by combining parts that do not have parent objects already defined
+	let fieldName = '';
+	if(!schema.required) {
+		schema.required = [];
+	}
+	let requiredObj = schema.required;
+	//Navigate existing heirarchy
+	propertyNames.forEach((fPart) => {
+		if(fieldName) {
+			fieldName = fieldName + '.' + fPart;
+		} else {
+			fieldName = fPart;
+		}
+		if(objRef[fieldName]) {
+			switch(objRef[fieldName].type) {
+				case 'array':
+					if(objRef[fieldName].items.type === 'object') {
+						requiredObj = objRef[fieldName].items.required;
+						objRef = objRef[fieldName].items.properties;
+						fieldName = '';
+					} else {
+						//This could happen if there is a dotted field property with a name collision
+						console.error(`Warning: treating ${fieldName} as a dotted property because there is an existing array defined already`);
+						return;
+					}
+					break;
+				case 'object':
+					requiredObj = objRef[fieldName].required;
+					objRef = objRef[fieldName].properties;
+					fieldName = '';
+					break;
+				default:
+					objRef = objRef[fieldName];
+					fieldName = '';
+			}
+		}
+	});
+	//Add new field
+	if(fieldName) {
+		let isArray = fType.slice(-2) === '[]';
+		if(isArray) {
+			fType = fType.slice(0, -2);
+		}
+		//Create new object if it doesn't exist
+		if(!objRef[fieldName]) {
+			if(isArray) {
+				objRef[fieldName] = {
+					items: {
+						type: fType,
+						example: defaultValue,
+						description,
+					},
+					type: 'array',
+				}
+				objRef = objRef[fieldName].items;
+			} else {
+				objRef[fieldName] = {
+					type: fType,
+					example: defaultValue,
+					description,
+				};
+				objRef = objRef[fieldName];
+			}
+			if(fType === 'object') {
+				objRef.properties = {};
+				objRef.required = [];
+			}
+		}
+		if(!optional) {
+			requiredObj.push(fieldName);
+		}
+	} else {
+		console.error(`Warning: Navigation appears to have failed for field: ${fName}`);
+	}
 }
 
 function createNestedName(field, defaultObjectName) {
