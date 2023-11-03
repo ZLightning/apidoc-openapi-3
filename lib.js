@@ -26,13 +26,19 @@ function main(options) {
     options.verbose && console.log('options', options);
     const log = generateLog(options)
     const { src, dest, verbose } = options
-    apidoc.setLogger(log)
-
+    apidoc.setLogger(log);
+    var projectData = { name: 'name', time: new Date(), version: '0.0.1', url: 'xxx url' };
+    if(options.config) {
+       try {
+           projectData = JSON.parse(fs.readFileSync(options.config, 'utf8'));
+       } catch(e) {
+           throw new Error(`Error reading configuration file: ${options.config}`);
+       }
+    }
     var api = apidoc.parse({ ...options, log: log })
 
     var apidocData = JSON.parse(api.data);
-    var projectData = JSON.parse(api.project);
-
+    //var projectData = JSON.parse(api.project);
     // Replicate underscoreToSpace handlebar filter from https://github.com/apidoc/apidoc/blob/0.50.5/template/src/hb_helpers.js#L93
     for (let article of apidocData) {
         if (article.name)

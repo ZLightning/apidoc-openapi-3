@@ -54,6 +54,7 @@ const options = {
     excludeFilters: ['apidoc\\.config\\.js$'].concat(argv.excludeFilters.length ? argv.excludeFilters : []),
     includeFilters: argv.fileFilters.length ? argv.fileFilters : ['.*\\.(clj|cls|coffee|cpp|cs|dart|erl|exs?|go|groovy|ino?|java|js|jsx|kt|litcoffee|lua|mjs|p|php?|pl|pm|py|rb|scala|ts|vue)$'],
     src: argv.input.length ? argv.input : ['./'],
+    config: argv.config,
     dest: argv.output,
     verbose: argv.verbose,
     debug: argv.debug,

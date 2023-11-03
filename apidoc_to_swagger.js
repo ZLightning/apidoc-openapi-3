@@ -1,3 +1,4 @@
+'use strict';
 var _ = require('lodash');
 var { pathToRegexp } = require('path-to-regexp');
 const { debug, log } = require('winston');
@@ -12,6 +13,9 @@ var swagger = {
 
 function toSwagger(apidocJson, projectJson) {
     swagger.info = addInfo(projectJson);
+    if(projectJson && projectJson.sampleUrl) {
+        swagger.servers = [{ url: projectJson.sampleUrl }];
+    }
     swagger.paths = extractPaths(apidocJson);
     // for (const key in swagger) {
     //     console.log('[%s] %o', key, swagger[key]);
@@ -183,6 +187,7 @@ function generateProps(verb) {
         tags: [verb.group],
         summary: removeTags(verb.name),
         description: removeTags(verb.title),
+        operationId: verb.name,
         parameters,
         responses
     }
@@ -348,7 +353,7 @@ function addSuccessField(fName, fType, optional, description, defaultValue, sche
 	let propertyName = fName;
 	let propertyNames = fName.split(".");
 	fType = fType.toLowerCase();
-	let objRef = schema;
+	let objRef = schema.properties;
 	//Handle the less common dotted field property that is NOT nested in the JSON response by combining parts that do not have parent objects already defined
 	let fieldName = '';
 	if(!schema.required) {
