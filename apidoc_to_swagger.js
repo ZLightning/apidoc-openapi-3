@@ -300,6 +300,7 @@ function mountResponseSpecSchema(verb, responses) {
     }
 }
 function transferApidocSuccessToSwaggerBody(specs, mountPoint) {
+	var requireds = [];
 	if(specs instanceof Array && specs.length) {
 		mountPoint.content = {
 			'application/json': {
@@ -313,7 +314,13 @@ function transferApidocSuccessToSwaggerBody(specs, mountPoint) {
 		specs.forEach((fieldData) => {
 			//ignore group parameter (too complicated to translate)
 			var { field: fName, type: fType, optional, defaultValue, description } = fieldData;
-			addSuccessField(fName, fType, optional, removeTags(description || ""), defaultValue, schema);
+			addSuccessField(fName, fType, optional, removeTags(description || ""), defaultValue, schema, requireds);
+		});
+		requireds.forEach(req => {
+			//Remove empty required arrays
+			if(req.required && req.required.length === 0) {
+				req.required = undefined;
+			}
 		});
 	}
 	return mountPoint;
@@ -349,7 +356,7 @@ function safeParseJson(content) {
     }
 }
 
-function addSuccessField(fName, fType, optional, description, defaultValue, schema) {
+function addSuccessField(fName, fType, optional, description, defaultValue, schema, requireds) {
 	let propertyName = fName;
 	let propertyNames = fName.split(".");
 	fType = fType.toLowerCase();
@@ -358,6 +365,7 @@ function addSuccessField(fName, fType, optional, description, defaultValue, sche
 	let fieldName = '';
 	if(!schema.required) {
 		schema.required = [];
+		requireds.push(schema);
 	}
 	let requiredObj = schema.required;
 	//Navigate existing heirarchy
@@ -394,21 +402,15 @@ function addSuccessField(fName, fType, optional, description, defaultValue, sche
 	//Add new field
 	if(fieldName) {
 		let isArray = fType.slice(-2) === '[]';
-		if(isArray) {
-			fType = fType.slice(0, -2);
-		}
 		//Create new object if it doesn't exist
 		if(!objRef[fieldName]) {
 			if(isArray) {
-				objRef[fieldName] = {
-					items: {
-						type: fType,
-						example: defaultValue,
-						description,
-					},
-					type: 'array',
-				}
-				objRef = objRef[fieldName].items;
+				objRef[fieldName] = {};
+				objRef = objRef[fieldName];
+				({ fType, objRef } = initArray(fType, objRef));
+				objRef.type = fType;
+				objRef.example = defaultValue;
+				objRef.description = description;
 			} else {
 				objRef[fieldName] = {
 					type: fType,
@@ -420,6 +422,8 @@ function addSuccessField(fName, fType, optional, description, defaultValue, sche
 			if(fType === 'object') {
 				objRef.properties = {};
 				objRef.required = [];
+				requireds.push(objRef);
+				
 			}
 		}
 		if(!optional) {
@@ -427,6 +431,17 @@ function addSuccessField(fName, fType, optional, description, defaultValue, sche
 		}
 	} else {
 		console.error(`Warning: Navigation appears to have failed for field: ${fName}`);
+	}
+}
+function initArray (fType, objRef) {
+	objRef.items = {};
+	objRef.type = 'array';
+	fType = fType.slice(0, -2);
+	objRef = objRef.items;
+	if(fType.slice(-2) === '[]') {
+		return initArray(fType, objRef);
+	} else {
+		return { fType, objRef };
 	}
 }
 
