@@ -186,7 +186,7 @@ function generateProps(verb) {
     pathItemObject[verb.type] = {
         tags: [verb.group],
         summary: removeTags(verb.name),
-        description: removeTags(verb.title),
+        description: removeTags(verb.description || verb.title),
         operationId: verb.name,
         parameters,
         responses
